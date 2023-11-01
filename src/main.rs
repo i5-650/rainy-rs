@@ -1,3 +1,5 @@
+use std::{println, format, env};
+
 use serde_json::Value;
 use reqwest;
 
@@ -13,8 +15,15 @@ struct CurrentWeather {
 
 #[tokio::main]
 async fn main() {
-    let lat = 45.750000;
-    let long = 4.850000;
+    let args: Vec<String> = env::args().collect();
+
+    if args.len() < 2 {
+        println!("You must provide a city as an argument:\nrainy London");
+        return;
+    }
+
+    let city_name = &args[1];
+    let (lat, long) = fetch_city_position(city_name).await;
     let values = fetch_weather(lat, long).await;
     if values.is_some() {
         let data = map_data(values.unwrap());
@@ -28,7 +37,44 @@ async fn main() {
     }
 }
 
-async fn fetch_weather(lat: f32, long: f32) -> Option<Value> {
+
+async fn fetch_city_position(city_name :&String) -> (f64, f64) {
+    let url = format!("https://geocode.maps.co/search?q={}", city_name);
+
+    let resp = reqwest::get(url).await;
+
+    let content = match resp {
+        Ok(response) => response,
+        Err(e) => {
+            println!("[Err] Failed to get a response: {}", e);
+            return (0.0,0.0);
+        }
+    };
+
+    let json_data = match content.text().await {
+        Ok(json_content) => json_content,
+        Err(e) => {
+            println!("[Err] Request content failed to load: {}", e);
+            return (0.0, 0.0);
+        }
+    };
+
+    let parsed = match serde_json::from_str::<Value>(&json_data.as_str()) {
+        Ok(data) => data,
+        Err(e) => {
+            println!("[Err] Failed to parse request content: {}", e);
+            return (0.0, 0.0);
+        }
+    };
+
+    let lat = remove_quote(&parsed[0]["lat"]).parse::<f64>().expect("Failed to parse latitude");
+    let lon = remove_quote(&parsed[0]["lon"]).parse::<f64>().expect("Failed to parse longitude");
+
+
+    return (lat, lon);
+}
+
+async fn fetch_weather(lat: f64, long: f64) -> Option<Value> {
     let url = format!("https://api.open-meteo.com/v1/forecast?latitude={}&longitude={}&current=temperature_2m,precipitation,rain,windspeed_10m,winddirection_10m&timezone=Europe%2FBerlin", lat, long);
     let resp = reqwest::get(url).await;
 
