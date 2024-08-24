@@ -1,7 +1,6 @@
 use std::{println, format, env};
 
 use serde_json::Value;
-use reqwest;
 
 
 #[derive(Debug)]
@@ -59,7 +58,7 @@ async fn fetch_city_position(city_name :&String) -> (f64, f64) {
         }
     };
 
-    let parsed = match serde_json::from_str::<Value>(&json_data.as_str()) {
+    let parsed = match serde_json::from_str::<Value>(json_data.as_str()) {
         Ok(data) => data,
         Err(e) => {
             println!("[Err] Failed to parse request content: {}", e);
@@ -71,7 +70,7 @@ async fn fetch_city_position(city_name :&String) -> (f64, f64) {
     let lon = remove_quote(&parsed[0]["lon"]).parse::<f64>().expect("Failed to parse longitude");
 
 
-    return (lat, lon);
+    (lat, lon)
 }
 
 async fn fetch_weather(lat: f64, long: f64) -> Option<Value> {
@@ -103,27 +102,28 @@ async fn fetch_weather(lat: f64, long: f64) -> Option<Value> {
     };
 
 
-    return Some(parsed);
+    Some(parsed)
 }
 
 fn map_data(data: Value) -> CurrentWeather {
-    return CurrentWeather {
+    CurrentWeather {
         temperature: data["current"]["temperature_2m"].to_string() + remove_quote(&data["current_units"]["temperature_2m"]).as_str(),
         precipitaion: data["current"]["precipitation"].to_string() + remove_quote(&data["current_units"]["precipitation"]).as_str(),
         rain: data["current"]["rain"].to_string() + remove_quote(&data["current_units"]["rain"]).as_str(),
         wind: data["current"]["windspeed_10m"].to_string() + remove_quote(&data["current_units"]["windspeed_10m"]).as_str(),
         wind_direction: convert_to_compass(data["current"]["winddirection_10m"].as_i64().expect("Problem with wind direction"))
-    };
+    }
 }
 
+#[inline(always)]
 fn remove_quote(input: &Value) -> String {
-    return input.to_string().replace("\"", "").to_string();
+    input.to_string().replace("\"", "").to_string()
 }
 
 
-
+#[inline(always)]
 fn convert_to_compass(degree: i64) -> String {
     let directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
     let index = (degree as f32 / 45.0).round() as usize % 8;
-    return String::from(directions[index]);
+    String::from(directions[index])
 }
